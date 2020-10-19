@@ -50,6 +50,7 @@ class ImgTextCompositionBase(torch.nn.Module):
         if opt.text_model_arch == 'BERT':
             txtmod = text_model.BERTModel()
             print("BERT successfully loaded")
+            self.text_projection_layer = torch.nn.Linear(768, opt.embed_dim)
         elif opt.text_model_arch == 'embeddings':
             txtmod = text_model.EmbeddingModel(texts_to_build_vocab=texts,
                                                word_embed_dim=opt.embed_dim)

@@ -237,7 +237,7 @@ class TextLSTMModel(EmbeddingModel):
             for ii in range(len(texts)):
                 text_mask[ii, :lengths[ii]] = 1
             output = self.fc_output(torch.transpose(lstm_output, 0, 1))
-            return output, text_mask.cuda()
+            return output, text_mask.long().cuda()
         else:
             # get last output (using length)
             text_features = []
