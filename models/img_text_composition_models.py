@@ -211,9 +211,9 @@ class SequenceConcatComposer(torch.nn.Module):
         dropout = self.opt.dropout_rate
 
         attn = get_multiheaded_attn(self.opt)
-        self.ff = PositionwiseFeedForward(d_model, d_ff, dropout)
+        ff_layer = PositionwiseFeedForward(d_model, d_ff, dropout)
 
-        enclayer = EncoderLayer(d_model, attn, self.ff, dropout)
+        enclayer = EncoderLayer(d_model, attn, ff_layer, dropout)
         self.encoder = Encoder(enclayer, N)
 
         if self.opt.attn_positional_encoding == "sinusoidal":

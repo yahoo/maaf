@@ -226,8 +226,8 @@ def create_model_and_optimizer(opt, texts):
                 for p11 in p1['params']:
                     for j, p22 in enumerate(p2['params']):
                         if p11 is p22:
-                            p2['params'][j] = torch.tensor(
-                                0.0, requires_grad=True)
+                            del p2['params'][j]# = torch.tensor(
+                                # 0.0, requires_grad=True)
     optimizer = torch.optim.SGD(
         params, lr=opt.learning_rate, momentum=0.9,
         weight_decay=opt.weight_decay)
