@@ -1,4 +1,4 @@
-# Copyright 2020 Verizon Media, Licensed under the terms of the Apache License, Version 2.0.
+# Copyright 2020 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
 # See LICENSE file in project root for terms.
 
 python main.py \
