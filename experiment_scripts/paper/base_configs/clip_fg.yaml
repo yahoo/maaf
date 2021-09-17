@@ -1,0 +1,34 @@
+EXP_NAME: fashiongen-clip
+OUTPUT_DIR: /home/default/ephemeral_drive/experiments/
+MODEL:
+  EMBED_DIM: 1024
+  COMPOSITION: clip
+  DEVICE: cuda
+  TEXT_MODEL:
+    ARCHITECTURE: null
+    TOKENIZER: null
+  IMAGE_MODEL:
+    ARCHITECTURE: null  # because included in clip
+  INCLUDES_IMAGE_TRANSFORM: false
+  LOSS: double_softmax
+  INITIAL_NORMALIZATION_FACTOR: 4.
+DATASET:
+  NAME: fashiongen
+  PATH: /home/default/ephemeral_drive/Data/fashiongen/
+  CLASS_WEIGHTS: null
+  IMAGE_DIR: null
+  REQUIRE_IMAGES: false
+  AUGMENTATION:
+    IMAGE_AUGMENTATION: null
+SOLVER:
+  OPTIMIZER: sgd
+  BATCH_SIZE: 128
+  NUM_ITERS: 24420  # 12 epochs
+  LEARNING_RATE_DECAY_FREQUENCY: 20350  # 10 epochs
+  EVAL_EVERY: 1
+  LEARNING_RATE: 0.00001
+  PRETRAINED_WEIGHT_LR_FACTOR_TEXT: 1.
+  PRETRAINED_WEIGHT_LR_FACTOR_IMAGE: 1.
+  BATCH_NORM_MODE: freeze_bn
+DATA_LOADER:
+  LOADER_NUM_WORKERS: 0  # otherwise hdf5 causes problems
