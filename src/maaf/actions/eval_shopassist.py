@@ -1,3 +1,7 @@
+# Copyright 2021 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
+# See LICENSE file in project root for terms.
+
+
 from ..main import setup
 from ..models.build import build_model
 from ..datasets.cfq import CFQSet

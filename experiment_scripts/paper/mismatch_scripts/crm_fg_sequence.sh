@@ -1,3 +1,6 @@
+# Copyright 2021 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
+# See LICENSE file in project root for terms.
+
 # set these
 TAG="clip-mismatch-resmaaf01-fg"
 pretrain_config=experiment_scripts/paper/base_configs/clipresmaaf_fg.yaml
