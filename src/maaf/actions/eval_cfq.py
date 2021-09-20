@@ -2,10 +2,10 @@
 # See LICENSE file in project root for terms.
 
 
-from ..main import setup
-from ..models.build import build_model
-from ..datasets.cfq import CFQSet
-from ..datasets.datasets import get_default_image_transform
+from maaf.main import setup
+from maaf.models.build import build_model
+from maaf.datasets.cfq import CFQSet
+from maaf.datasets.datasets import get_default_image_transform
 import argparse
 import os
 import json
@@ -20,7 +20,7 @@ def parse_opt():
     add_arg('--weights_path', type=str, default=None)
     add_arg('--debug', action="store_true")
     add_arg('--non-strict_loading', action="store_false", dest="strict_loading")
-    add_arg('--data_path', default="/home/default/ephemeral_drive/Data/shop_assist_queries/")
+    add_arg('--data_path', default="/home/default/ephemeral_drive/Data/cfq/")
     add_arg('--output_path', type=str, default=None)
 
     add_arg(
@@ -51,7 +51,7 @@ def evaluate():
         state_dict = torch.load(weights_path, map_location=model.device)["model_state_dict"]
         model.load_state_dict(state_dict, strict=args.strict_loading)
 
-    data_path = os.path.join(args.data_path, "sheets")
+    data_path = os.path.join(args.data_path)
     image_path = os.path.join(args.data_path, "images")
     if hasattr(model, "image_transform"):
         transform = model.image_transform

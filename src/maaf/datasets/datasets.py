@@ -39,16 +39,9 @@ def get_augmenting_image_transform(clip=False):
     return train_transform
 
 
-def load_dataset(cfg, calibration=None):
+def load_dataset(cfg):
     """Loads the input datasets."""
     print('Reading dataset ', cfg.DATASET.NAME)
-
-    if cfg.MODEL.LOSS == "multilabel_soft_margin":
-        labels = "one_hot"
-    elif cfg.MODEL.LOSS == "mse":
-        labels = "index_normed"
-    else:
-        labels = "index"
 
     if cfg.MODEL.INCLUDES_IMAGE_TRANSFORM:
         transform = None

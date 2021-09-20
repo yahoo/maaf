@@ -56,7 +56,7 @@ def main(old_args=False):
     sha = repo.head.object.hexsha
     logger.add_text("git_sha", sha)
 
-    dataset_dict = load_dataset(cfg, calibration=args.calibrate)
+    dataset_dict = load_dataset(cfg)
     if cfg.MODEL.TEXT_MODEL.TOKENIZER == "simple":
         texts = dataset_dict["train"].get_all_texts()
     else:

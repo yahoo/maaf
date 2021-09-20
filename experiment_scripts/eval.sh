@@ -34,6 +34,6 @@ if ! compgen -G "${expdir}/fashiongen*eval.json" > /dev/null || [ $REDO_EVALS ];
     MODEL.WEIGHTS $weights \
     DATASET.AUGMENTATION.IMAGE_AUGMENTATION None
 fi
-if [[ ! -e $expdir/shopassist_results.json ]] || [ $REDO_EVALS ]; then
-  python src/maaf/actions/eval_shopassist.py --config $expdir/config.yaml
+if [[ ! -e $expdir/cfq_results.json ]] || [ $REDO_EVALS ]; then
+  python src/maaf/actions/eval_cfq.py --config $expdir/config.yaml
 fi

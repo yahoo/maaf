@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 import os
 import torch
-import re
 from collections import defaultdict
 import json
 
@@ -21,7 +20,7 @@ class CFQSet:
         self.thresholds = [-1, -0.67, -0.34, -0.01, 0.33, 0.66, 0.99]
 
         judgment_path = os.path.join(path, "judgments.tsv")
-        df = pd.read_csv(judgment, delimiter="\t")
+        df = pd.read_csv(judgment_path, delimiter="\t")
 
         df["accurate"] = df["accurate"].apply(str.lower)
         df["similar"] = df["similar"].apply(str.lower)
@@ -34,9 +33,8 @@ class CFQSet:
         df["similar"].replace("somewhat reasonable", 0, inplace=True)
         df["similar"].replace("not reasonable", -1, inplace=True)
 
-
         self.subsets = {name: CFQ(
-            df[df["subset"] == name,
+            df[df["subset"] == name],
             image_path, transform, self.thresholds
             ) for name in df["subset"].unique()}
 
@@ -45,7 +43,6 @@ class CFQSet:
         equiv_cap_path = os.path.join(path, "equivalent_captions.json")
         with open(equiv_cap_path, "r") as fh:
             self.equivalent_captions = json.load(fh)
-
 
     def compute_metrics(self, model, with_dots=True):
         by_subset = {key: subset.augmented_compute_metrics(
@@ -111,8 +108,12 @@ class CFQ:
         aggregated = aggregated.agg({"accurate": "mean", "similar": "mean"})
         aggregated = aggregated.reset_index()
         # for sorting by accuracy first, then similarity secondarily
-        # ties are (arbitrarily) broken by catalog id
-        aggregated["acc_first_sorter"] = aggregated["accurate"] + 0.1 * aggregated["similar"] + aggregated["catalog_id"].iloc[0] / 10**20
+        # ties broken arbitrarily (but consistently) using catalog hash
+        def tiebreak(string):
+            return sum([ord(ch) for ch in string])
+        aggregated["acc_first_sorter"] = \
+            aggregated["accurate"] + 0.1 * aggregated["similar"] + \
+            aggregated["catalog_hash"].apply(tiebreak) / 10**20
         # measure relevance by sum of accuracy and similarity. for nDCG, etc
         aggregated["relevance"] = aggregated["accurate"] + aggregated["similar"] + 2
         aggregated["relevance"] = (3 * aggregated["relevance"]).astype(int)
@@ -145,9 +146,7 @@ class CFQ:
             img = self.transform(img)
         return torch.stack([img]).float()
 
-    def get_embeddings(self, model, queries, catalog, use_titles=False):
-        if use_titles:
-            raise NotImplementedError
+    def get_embeddings(self, model, queries, catalog):
         if hasattr(model, "preprocess"):
             preprocess = model.preprocess
         else:
@@ -174,7 +173,7 @@ class CFQ:
         queries = df[["caption", "query_hash"]].drop_duplicates()
         catalog = df[["catalog_hash"]].drop_duplicates()
         with torch.no_grad():
-            que_emb, cat_emb = self.get_embeddings(model, queries, catalog, use_titles=use_titles)
+            que_emb, cat_emb = self.get_embeddings(model, queries, catalog)
 
         def get_dot(row):
             key = str(row["query_hash"]) + row["caption"]
@@ -225,7 +224,7 @@ class CFQ:
             extras.append(df.replace(to_replace=qmap))
         combined = pd.concat([df] + extras)
 
-        return self.compute_metrics(model, df=combined, use_titles=use_titles)
+        return self.compute_metrics(model, df=combined)
 
     def captions_by_diff(self, dots, split):
         res_df = self.aggregated.copy()
