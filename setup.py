@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Package setup file for python module vzmi.multimodal
+Package setup file for python module maaf
 """
 # WARNING: Do not modify this file unless you know exactly what you are doing.
 #
@@ -10,7 +10,7 @@ Package setup file for python module vzmi.multimodal
 # is used to obtain package metadata and install the package on other computer systems.   As a
 # result, it must be able to execute without generating errors or execeptions in an environment with
 # only the python interpreter and nothing else.
-# 
+#
 # This file should never do any of the following:
 #  - Import Python modules that are not included with the Python standard library
 #  - Import any code that is contained in the package
