@@ -1,4 +1,4 @@
-# Copyright 2021 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
+# Copyright 2022 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
 # See LICENSE file in project root for terms.
 
 from PIL import Image
@@ -98,6 +98,19 @@ class CFQSet:
         primary["similar mAP"] = average["m_ap"]["similar_-2/3"]
         primary["nDCG"] = np.mean(list(average["linear_ndcg"].values()))
         return primary
+
+
+    def get_ap_by_caption(self, model):
+        metrics = {}
+        for key, subset in self.subsets.items():
+            metrics[key] = subset.augmented_ap_by_caption(
+                model, self.equivalent_captions)
+        all_aps = {}
+        for metname in metrics[key].keys():
+            all_aps[metname] = pd.concat(
+                [mets[metname] for mets in metrics.values()])
+
+        return all_aps
 
 
 class CFQ:

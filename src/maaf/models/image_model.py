@@ -1,6 +1,5 @@
-# Copyright 2021 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
+# Copyright 2022 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
 # See LICENSE file in project root for terms.
-
 
 import torch
 import torchvision
@@ -230,6 +229,10 @@ def build_image_model(cfg):
         return None
 
     out_features = cfg.MODEL.IMAGE_MODEL.OUTPUTS
+    # if cfg.MODEL.COMPOSITION in MAAF_ALIASES:
+    #     out_channels = cfg.MODEL.EMBED_DIM
+    # else:
+    #     out_channels = None
     out_channels = cfg.MODEL.EMBED_DIM
     pretrained = cfg.MODEL.IMAGE_MODEL.PRETRAINED and \
         cfg.MODEL.IMAGE_MODEL.WEIGHTS is None and \
@@ -238,7 +241,8 @@ def build_image_model(cfg):
                  pretrained=pretrained)
 
     if cfg.MODEL.IMAGE_MODEL.WEIGHTS is not None:
-
+        # saved_state_dict = torch.load(opt.image_model_path)['state_dict']
+        # self.model.load_state_dict(saved_state_dict)
         load_pretrained_weights(
             model=img_model, weights_path=cfg.MODEL.IMAGE_MODEL.WEIGHTS,
             freeze=cfg.MODEL.IMAGE_MODEL.FREEZE_WEIGHTS,

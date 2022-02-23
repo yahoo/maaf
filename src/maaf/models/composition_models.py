@@ -1,4 +1,4 @@
-# Copyright 2021 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
+# Copyright 2022 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
 # See LICENSE file in project root for terms.
 
 
@@ -6,6 +6,7 @@
 import torch
 import math
 import numpy as np
+from abc import ABC, abstractmethod
 
 from .transformer import MultiHeadedAttention, \
     PositionwiseFeedForward, \
@@ -13,28 +14,11 @@ from .transformer import MultiHeadedAttention, \
     EncoderLayer, Encoder
 
 
-class NormalizationLayer(torch.nn.Module):
-    """Class for normalization layer."""
-
-    def __init__(self, normalize_scale=1.0, learn_scale=True):
-        super().__init__()
-        self.norm_s = torch.log(torch.FloatTensor([normalize_scale]))
-        if learn_scale:
-            self.norm_s = torch.nn.Parameter(self.norm_s)
-        self.epsilon = 1e-9
-
-    def forward(self, x):
-        norm = torch.norm(x, dim=1, keepdim=True).expand_as(x)
-        factor = torch.exp(self.norm_s)
-        features = factor * x / (norm + self.epsilon)
-        return features
-
-
-class ImgTextCompositionBase(torch.nn.Module):
+class ImgTextCompositionBase(torch.nn.Module, ABC):
     """Base class for image + text composition."""
 
-    def __init__(self, loss, image_model=None, text_model=None):
-        super().__init__()
+    def __init__(self, head, image_model=None, text_model=None):
+        torch.nn.Module.__init__(self)
         if image_model is None:
             self.image_model = lambda xx: None
         else:
@@ -43,10 +27,11 @@ class ImgTextCompositionBase(torch.nn.Module):
             self.text_model = lambda xx: None
         else:
             self.text_model = text_model
-        self.loss = loss
+        self.head = head
 
+    @abstractmethod
     def compose(self, img_emb, text_emb):
-        raise NotImplementedError
+        pass
 
     def extract_img_feature(self, imgs):
         if all([im is None for im in imgs]):
@@ -58,11 +43,23 @@ class ImgTextCompositionBase(torch.nn.Module):
             return None
         return self.text_model(texts)
 
-    def forward(self, images, texts):
+    def get_composition(self, images, texts):
         image_emb = self.extract_img_feature(images)
         text_emb = self.extract_text_feature(texts)
-
         return self.compose(image_emb, text_emb)
+
+    def forward(self, images, texts):
+        composition = self.get_composition(images, texts)
+        return self.head(composition)
+
+    def compute_loss(self, source_images, source_texts,
+                     target_images=None, target_texts=None, labels=None):
+        source = self(source_images, source_texts)
+        if target_images is not None or target_texts is not None:
+            target = self(target_images, target_texts)
+        else:
+            target = None
+        return self.head.compute_loss(source, target, labels=labels)
 
     def image_model_parameters(self, include_scratch=True):
         if not include_scratch:
@@ -130,100 +127,6 @@ class RandomComposition(ImgTextCompositionBase):
     @property
     def device(self):
         return "cpu"
-
-
-def get_classifier_class(input_class):
-
-    class ImgTextCompositionClassifier(input_class):
-
-        def __init__(self, loss, embed_dim=512, num_classes=3,
-                     image_model=None, text_model=None, **kwargs):
-            super().__init__(
-                loss, image_model=image_model, text_model=text_model, **kwargs)
-
-            self.classification_head = torch.nn.Linear(embed_dim, num_classes)
-            self.softmax = torch.nn.Softmax(dim=1)
-
-        def forward(self, images, texts):
-            image_emb = self.extract_img_feature(images)
-            text_emb = self.extract_text_feature(texts)
-
-            composed = self.compose(image_emb, text_emb)
-            return self.classification_head(composed)
-
-        def probabilities(self, images, texts):
-            logits = self(images, texts)
-            return self.softmax(logits)
-
-        def compute_loss(self, images, texts, labels):
-            logits = self(images, texts)
-            preds = torch.argmax(logits, dim=1)
-            accuracy = (preds == labels).sum().item() / len(labels)
-            loss_value = self.loss(logits, labels)
-            metrics = {"loss": loss_value.item(),
-                       "accuracy": accuracy}
-            return loss_value, metrics
-
-    return ImgTextCompositionClassifier
-
-
-def get_regression_class(input_class):
-
-    class ImgTextCompositionRegression(input_class):
-
-        def __init__(self, loss, embed_dim=512,
-                     image_model=None, text_model=None, **kwargs):
-            super().__init__(
-                loss, image_model=image_model, text_model=text_model, **kwargs)
-            self.regression_head = torch.nn.Linear(embed_dim, 1)
-
-        def forward(self, images, texts):
-            image_emb = self.extract_img_feature(images)
-            text_emb = self.extract_text_feature(texts)
-            composed = self.compose(image_emb, text_emb)
-            return torch.sigmoid(self.regression_head(composed))
-
-        def compute_loss(self, images, texts, labels):
-            output = self(images, texts)
-            loss_value = self.loss(output, labels.float())
-            metrics = {"loss": loss_value.item()}
-            return loss_value, metrics
-
-    return ImgTextCompositionRegression
-
-
-def get_metric_learning_class(input_class):
-
-    class ImgTextCompositionMetricModel(input_class):
-
-        def __init__(self, loss, image_model=None, text_model=None,
-                     initial_normalization_factor=4.0, **kwargs):
-            super().__init__(
-                loss, image_model=image_model, text_model=text_model, **kwargs)
-            self.normalization_layer = NormalizationLayer(
-                normalize_scale=initial_normalization_factor, learn_scale=True)
-
-        def forward(self, images, texts):
-            image_emb = self.extract_img_feature(images)
-            text_emb = self.extract_text_feature(texts)
-            embedding = self.compose(image_emb, text_emb)
-            return self.normalization_layer(embedding)
-
-        def compute_loss(self, source_images, source_texts,
-                         target_images, target_texts,
-                         judgments=None):
-
-            source_emb = self.forward(source_images, source_texts)
-            target_emb = self.forward(target_images, target_texts)
-
-            assert source_emb.shape[1] == target_emb.shape[1]
-            loss_value = self.loss(source_emb, target_emb, judgments=judgments)
-            metrics = {"loss": loss_value.item()}
-            if torch.isnan(loss_value):
-                import IPython; IPython.embed()
-            return loss_value, metrics
-
-    return ImgTextCompositionMetricModel
 
 
 class SimpleModelImageOnly(ImgTextCompositionBase):
@@ -378,7 +281,6 @@ class MAAF(ImgTextCompositionBase):
 
         if text_emb is not None:
             text_emb, text_mask = text_emb
-            # text_emb = text_emb.transpose(1, 0)
             embeddings += [text_emb]
             masks += [text_mask]
 
@@ -463,3 +365,45 @@ class Concat(ImgTextCompositionBase):
             return img_emb
         concat = torch.cat((img_emb, text_emb), dim=1)
         return self.model(concat)
+
+
+class ConCatModule(torch.nn.Module):
+
+    def __init__(self):
+        super(ConCatModule, self).__init__()
+
+    def forward(self, xx):
+        xx = torch.cat(xx, dim=1)
+        return xx
+
+
+class TIRG(ImgTextCompositionBase):
+    """
+    Adapted from method in
+    Nam Vo, Lu Jiang, Chen Sun, Kevin Murphy, Li-Jia Li, Li Fei-Fei, James Hays.
+    "Composing Text and Image for Image Retrieval - An Empirical Odyssey"
+    CVPR 2019. arXiv:1812.07119
+    and associated code.
+    """
+
+    # TODO: reimplement
+    def __init__(self, head, image_model=None, text_model=None, embed_dim=512):
+        super().__init__(head, image_model=image_model, text_model=text_model)
+        self.a = torch.nn.Parameter(torch.tensor([1.0, 10.0, 1.0, 1.0]))
+        self.gated_feature_composer = torch.nn.Sequential(
+            ConCatModule(),
+            torch.nn.BatchNorm1d(2 * embed_dim), torch.nn.ReLU(),
+            torch.nn.Linear(2 * embed_dim, embed_dim))
+        self.res_info_composer = torch.nn.Sequential(
+            ConCatModule(),
+            torch.nn.BatchNorm1d(2 * embed_dim), torch.nn.ReLU(),
+            torch.nn.Linear(2 * embed_dim, 2 * embed_dim), torch.nn.ReLU(),
+            torch.nn.Linear(2 * embed_dim, embed_dim))
+
+    def compose(self, img_emb, text_emb):
+        if text_emb is None:
+            return img_emb
+        f1 = self.gated_feature_composer((img_emb, text_emb))
+        f2 = self.res_info_composer((img_emb, text_emb))
+        f = torch.nn.functional.sigmoid(f1) * img_emb * self.a[0] + f2 * self.a[1]
+        return f

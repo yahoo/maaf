@@ -1,0 +1,45 @@
+DATASET:
+  NAME: fashioniq
+  PATH: /home/default/ephemeral_drive/Data/FashionIQ/
+  REQUIRE_IMAGES: false
+  AUGMENTATION:
+    IMAGE_AUGMENTATION: true
+DATA_LOADER:
+  LOADER_NUM_WORKERS: 0
+OUTPUT_DIR: /home/default/ephemeral_drive/experiments/
+EXP_NAME: clipaf-fiq-baseline
+MODEL:
+  EMBED_DIM: 1024
+  COMPOSITION: cliptirg
+  DEVICE: cuda
+  LOSS: batch_based_classification
+  TEXT_MODEL:
+    ARCHITECTURE: default  # use the model paired with IMAGE_MODEL.ARCHITECTURE
+    TOKENIZER: null
+  IMAGE_MODEL:
+    ARCHITECTURE: RN50
+    OUTPUTS:
+    - 4
+    - attnpool
+  INCLUDES_IMAGE_TRANSFORM: false
+  MAAF:
+    ATTENTION_HEADS: 8
+    ATTN_SOFTMAX_REPLACEMENT: null
+    BLOCK_WIDTH: 256
+    NUM_BLOCKS: 1
+    OUTPUT: rwpool
+    POSITION_ENCODING: null
+    RESIDUAL:
+      INITIAL_MAAF_WEIGHT: 0.1
+SOLVER:
+  OPTIMIZER: adam
+  BATCH_SIZE: 128
+  DROP_WORST_RATE: 0
+  EVAL_EVERY: 1
+  LEARNING_RATE: 1.0e-05
+  LEARNING_RATE_DECAY: 0.1
+  LEARNING_RATE_DECAY_FREQUENCY: 700
+  NUM_ITERS: 1400
+  BATCH_NORM_MODE: freeze_bn
+  PRETRAINED_WEIGHT_LR_FACTOR_TEXT: 0.1
+  PRETRAINED_WEIGHT_LR_FACTOR_IMAGE: 0.1

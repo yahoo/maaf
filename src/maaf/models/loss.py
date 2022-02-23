@@ -1,6 +1,5 @@
-# Copyright 2021 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
+# Copyright 2022 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
 # See LICENSE file in project root for terms.
-
 
 import sys
 import torch
@@ -33,6 +32,10 @@ def build_loss(cfg):
         loss_obj = Logistic()
     elif loss_name == "logistic_cumulative":
         loss_obj = LogisticCumulativeLink(cfg.DATASET.NUM_CLASSES)
+    elif loss_name == "logratio":
+        loss_obj = LogRatioLoss()
+    elif loss_name == "softlabel_softmax":
+        loss_obj = SoftLabelSoftmaxLoss()
     else:
         print('Invalid loss function', loss_name)
         sys.exit()
@@ -42,13 +45,13 @@ def build_loss(cfg):
 
 class MetricLossBase:
 
-    def __call__(self, sources, targets, judgments):
+    def __call__(self, sources, targets, labels):
         raise NotImplementedError
 
 
 class SoftTripletLoss(MetricLossBase):
 
-    def __call__(self, sources, targets, judgments=None):
+    def __call__(self, sources, targets, labels=None):
         triplets = []
         labels = list(range(sources.shape[0])) + list(range(targets.shape[0]))
         for i in range(len(labels)):
@@ -74,7 +77,7 @@ class BatchSoftmaxLoss(MetricLossBase):
         self.softmax_margin = softmax_margin
         self.drop_worst_rate = drop_worst_rate
 
-    def __call__(self, sources, targets, judgments=None):
+    def __call__(self, sources, targets, labels=None):
         dots = torch.mm(sources, targets.transpose(0, 1))
         if self.softmax_margin > 0:
             dots = dots - (torch.Tensor(np.eye(dots.shape[0])).to(sources.device)
@@ -96,7 +99,7 @@ class DoubleBatchSoftmaxLoss(MetricLossBase):
         self.loss_first = nn.CrossEntropyLoss()
         self.loss_second = nn.CrossEntropyLoss()
 
-    def __call__(self, sources, targets, judgments=None):
+    def __call__(self, sources, targets, labels=None):
         dots = torch.mm(sources, targets.transpose(0, 1))
 
         labels = torch.tensor(range(dots.shape[0])).long().to(dots.device)
@@ -107,6 +110,71 @@ class DoubleBatchSoftmaxLoss(MetricLossBase):
         return final_loss / 2
 
 
+class SoftLabelSoftmaxLoss(MetricLossBase):
+
+    def __init__(self):
+        self.celoss = nn.CrossEntropyLoss()
+
+    def __call__(self, sources, targets, labels):
+        dots = torch.mm(sources, targets.transpose(0, 1))
+        iou = labels_from_attributes(labels, dots.shape).to(dots.device)
+        # NOTE: using CrossEntropyLoss with probabilities requires
+        # a recent PyTorch version. Installing this naively may cause problems
+        # e.g. a protobuf conflict...but downgrading protobuf may solve this
+        return self.celoss(dots, iou)
+
+
+def intersection_over_union(first, other):
+    first_set = set(first)
+    other_set = set(other)
+    union = len(first_set.union(other_set))
+    intersection = len(first_set.intersection(other_set))
+    return intersection / union
+
+
+def labels_from_attributes(labels, shape):
+    """Compute IoU labels given attribute lists"""
+    iou = torch.zeros(shape)
+    for ii in range(len(labels)):
+        source_att = labels[ii][0]
+        for jj in range(len(labels)):
+            target_att = labels[jj][1]
+            iou[ii, jj] = intersection_over_union(source_att, target_att)
+    return iou
+
+
+class LogRatioLoss(MetricLossBase):
+    """
+    Adapted from
+    Kim et al. 'Deep metric learning beyond binary supervision' CVPR 2019.
+    See
+    https://github.com/tjddus9597/Beyond-Binary-Supervision-CVPR19/blob/master/code/LogRatioLoss.py
+    """
+    epsilon = 1e-6
+
+    def __init__(self):
+        pass
+
+    def __call__(self, sources, targets, labels):
+        # get all pairwise distances by broadcasting
+        distances = torch.linalg.vector_norm(
+            sources[:, None, :] - targets[None, :, :], dim=2)
+        log_dist = torch.log(distances + self.epsilon)
+
+        iou = labels_from_attributes(labels, log_dist.shape).to(log_dist.device)
+        log_iou = torch.log(iou + self.epsilon)
+
+        # get a loss term for each triple (a, i, j) for i and j in target
+        # note that the i=j terms are 0
+        loss_terms = (log_dist[:, :, None] - log_dist[:, None, :]) - \
+                     (log_iou[:, :, None] - log_iou[:, None, :])
+        loss_terms = loss_terms * loss_terms
+
+        loss = torch.mean(loss_terms)
+
+        return loss
+
+
 class Logistic(MetricLossBase, nn.Module):
 
     def __init__(self):
@@ -115,10 +183,10 @@ class Logistic(MetricLossBase, nn.Module):
         self.criterion = nn.SoftMarginLoss()
         # self.criterion = nn.BCELoss()  for this need sigmoid in __call__
 
-    def __call__(self, sources, targets, judgments=None):
+    def __call__(self, sources, targets, labels=None):
         dots = torch.sum(sources * targets, dim=1)
-        judgments = torch.Tensor(judgments)
-        return self.criterion(dots, judgments)
+        labels = torch.Tensor(labels)
+        return self.criterion(dots, labels)
 
 
 class LogisticCumulativeLink(MetricLossBase, nn.Module):
@@ -133,7 +201,7 @@ class LogisticCumulativeLink(MetricLossBase, nn.Module):
         self.thresholds = nn.Parameter(self.thresholds)
 
 
-    def __call__(self, sources, targets, judgments=None):
+    def __call__(self, sources, targets, labels=None):
         dots = torch.sum(sources * targets, dim=1).unsqueeze(-1)
         sigmoids = torch.sigmoid(self.thresholds - dots)
         link_mat = sigmoids[:, 1:] - sigmoids[:, :-1]
@@ -145,9 +213,9 @@ class LogisticCumulativeLink(MetricLossBase, nn.Module):
             dim=1
         )  # batch, num_classes
 
-        judgments = torch.Tensor(judgments).long()
+        labels = torch.Tensor(labels).long()
 
-        likelihoods = link_mat[judgments]
+        likelihoods = link_mat[labels]
         eps = 1e-15
         likelihoods = torch.clamp(likelihoods, eps, 1 - eps)
         neg_log_likelihood = -torch.log(likelihoods)

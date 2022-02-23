@@ -1,4 +1,4 @@
-# Copyright 2021 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
+# Copyright 2022 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
 # See LICENSE file in project root for terms.
 
 import time
@@ -259,7 +259,7 @@ class MetricTrainer(Trainer):
 
 
     def metric_eval(self, testset, eval_on_test=False):
-        if self.cfg.DATASET.NAME in ["fashioniq", "fashion200k"]:
+        if self.cfg.DATASET.NAME in ["fashioniq"]:
             categ = self.cfg.DATASET.NAME == "fashioniq"
             test_results = eval_retrieval.test(
                 self.cfg, self.model, testset, filter_categories=categ)

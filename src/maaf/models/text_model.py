@@ -1,4 +1,4 @@
-# Copyright 2021 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
+# Copyright 2022 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
 # See LICENSE file in project root for terms.
 
 
@@ -6,13 +6,13 @@
 import string
 import numpy as np
 import torch
+import copy
 from .transformer import EncoderLayer, Encoder, \
     MultiHeadedAttention, PositionwiseFeedForward, PositionalEncoding
 from tokenizers import ByteLevelBPETokenizer  # huggingface
-from transformers import RobertaTokenizer, RobertaModel
+from transformers import RobertaTokenizer, RobertaModel, RobertaConfig
 import os
 from ..config.compat import MAAF_ALIASES
-
 
 class SimpleVocab:
 

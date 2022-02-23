@@ -1,14 +1,12 @@
-# Copyright 2021 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
+# Copyright 2022 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
 # See LICENSE file in project root for terms.
-
-
 """Functions to put everything together and build the model."""
 
 import sys
 import os
 import torch
 from . import composition_models
-from .loss import build_loss
+from .heads import get_task_head
 from .image_model import build_image_model
 from .text_model import build_text_model
 from ..config.compat import MAAF_ALIASES
@@ -87,20 +85,9 @@ def build_model(cfg, texts=None, strict_loading=True):
         print('Invalid model', cfg.MODEL.COMPOSITION)
         sys.exit()
 
-    loss_obj, learning_type = build_loss(cfg)
+    head, task = get_task_head(cfg)
 
-    if learning_type == "metric":
-        ModelClass = composition_models.get_metric_learning_class(ModelClass)
-        kwargs["initial_normalization_factor"] = cfg.MODEL.INITIAL_NORMALIZATION_FACTOR
-    elif learning_type == "regression":
-        ModelClass = composition_models.get_regression_class(ModelClass)
-        kwargs.update({"embed_dim": cfg.MODEL.EMBED_DIM})
-    else:
-        ModelClass = composition_models.get_classifier_class(ModelClass)
-        kwargs.update({"embed_dim": cfg.MODEL.EMBED_DIM,
-                       "num_classes": cfg.DATASET.NUM_CLASSES})
-
-    model = ModelClass(loss_obj, **kwargs)
+    model = ModelClass(head, **kwargs)
 
     device = torch.device(cfg.MODEL.DEVICE)
     model.to(device)
@@ -111,7 +98,7 @@ def build_model(cfg, texts=None, strict_loading=True):
         model.load_state_dict(loaded_dict["model_state_dict"],
                               strict=strict_loading)
 
-    return model, learning_type
+    return model, task
 
 
 def get_optimizer(cfg, model):

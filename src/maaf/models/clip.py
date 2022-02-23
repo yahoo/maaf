@@ -1,13 +1,12 @@
-# Copyright 2021 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
+# Copyright 2022 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
 # See LICENSE file in project root for terms.
-
 
 import clip
 from clip.clip import _tokenizer
 import torch
 from torchvision import transforms as tvt
 from PIL import Image
-from .composition_models import Addition, MAAF
+from .composition_models import ImgTextCompositionBase, MAAF, TIRG
 from .image_model import ConvProjection
 
 
@@ -52,28 +51,87 @@ def tokenize(texts, context_length=77):
     return result
 
 
-class ClipModel(Addition):
+class ClipModel(ImgTextCompositionBase):
 
-    def __init__(self, loss, image_model='RN50', text_model=None, prompt="",
-                 pretrain=True, load_image_transform=True):
+    def __init__(self, loss, image_model='RN50', text_model="default",
+                 prompt="", pretrain=True, load_image_transform=True,
+                 misalignment=None):
         super().__init__(loss)
         device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        if image_model == "resnet50" or image_model is None:
+            image_model = "RN50"
         self.clip, image_transform = clip.load(image_model, device, jit=False)
         self.prompt = prompt
-        self.image_model = self.clip.visual
-        self.text_model = self.clip.transformer
+        self.image_model = None if image_model is None else self.clip.visual
+        self.text_model = None if text_model is None else self.clip.transformer
         if load_image_transform:
             self.image_transform = image_transform
 
         if not pretrain:
             self.clip.initialize_parameters()
 
+        # setup misalignment or omitting a modality
+        if misalignment == "scramble":
+            # shuffle the text_projection outputs
+            # to destroy alignment with image embedding
+            print("Using CLIP with text_projection scrambled")
+            num_rows, num_cols = self.clip.text_projection.data.shape
+            col_inds = torch.randperm(num_cols)
+            self.clip.text_projection.data = \
+                self.clip.text_projection.data[:, col_inds]
+            self.omit_in_composition = None
+        elif misalignment == "mismatch":
+            print("Using CLIP with a wrong text model")
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            other_clip, _ = clip.load("RN101", device, jit=False)
+            if not pretrain:
+                other_clip.initialize_parameters()
+            self.clip.transformer = other_clip.transformer
+            self.text_model = self.clip.transformer
+            del other_clip.visual
+            self.omit_in_composition = None
+        elif misalignment == "image_only":
+            print("CLIP with only image when available")
+            self.omit_in_composition = "text"
+        elif misalignment == "text_only":
+            print("CLIP with only text when available")
+            self.omit_in_composition = "image"
+        elif misalignment is not None:
+            raise ValueError(f"Invalid misalignment {misalignment} requested.")
+        else:
+            self.omit_in_composition = None
+
+    def compose(self, img_emb, text_emb):
+        """
+        Vector addition if both embeddings available.
+        Don't add embedding specified by self.omit_in_composition, but use it
+        if it's the only embedding.
+        """
+
+        assert img_emb is not None or text_emb is not None, \
+            "No images or text available"
+        if img_emb is None:
+            return text_emb
+        elif text_emb is None:
+            return img_emb
+        elif self.omit_in_composition == "image":
+            return text_emb
+        elif self.omit_in_composition == "text":
+            return img_emb
+
+        return img_emb + text_emb
+
     def extract_img_feature(self, images):
+        if self.image_model is None:
+            return None
         if all([im is None for im in images]):
             return None
         return self.clip.encode_image(images)
 
     def extract_text_feature(self, texts):
+        if self.text_model is None:
+            return None
         if all([tt is None for tt in texts]):
             return None
         tokenized = [tokenize(f"{self.prompt}{tx}") for tx in texts]
@@ -81,35 +139,9 @@ class ClipModel(Addition):
         return self.clip.encode_text(text_inputs)
 
 
-class ScrambledClip(ClipModel):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # shuffle the text_projection outputs
-        # to destroy alignment with image embedding
-        num_rows, num_cols = self.clip.text_projection.data.shape
-        col_inds = torch.randperm(num_cols)
-        self.clip.text_projection.data = \
-            self.clip.text_projection.data[:, col_inds]
-
-
-class MisalignedClip(ClipModel):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        other_clip, _ = clip.load("RN101", device, jit=False)
-        if not kwargs["pretrain"]:
-            other_clip.initialize_parameters()
-        self.clip.transformer = other_clip.transformer
-        self.text_model = self.clip.transformer
-        del other_clip.visual
-
-
 class ClipMAAF(MAAF):
 
-    def __init__(self, loss, image_model='RN50', text_model=None,
+    def __init__(self, loss, image_model='RN50', text_model="default",
                  prompt="", model_dim=512, num_heads=8, ff_width=256,
                  dropout=0.1, num_blocks=1, position_encodings=None,
                  output="rwpool", img_out_features=["fc"],
@@ -217,6 +249,8 @@ class TextFeatureExtractor(torch.nn.Module):
             clip_model.transformer = other_clip.transformer
             self.model = clip_model.transformer
             del other_clip.visual
+        elif misalignment is not None:
+            raise ValueError(f"Invalid misalignment {misalignment} requested.")
 
     def pretrained_parameters(self):
         scratch = set([param for param in self.out_layer.parameters()])
@@ -246,6 +280,7 @@ class TextFeatureExtractor(torch.nn.Module):
             input_mask[ii, :lengths[ii].item() + 1] = 1
 
         return out, input_mask
+
 
 class ImageFeatureExtractor(torch.nn.Module):
 
@@ -365,19 +400,56 @@ class ImageFeatureExtractor(torch.nn.Module):
         return torch.mean(torch.stack(resmeans), 0)
 
 
+class ClipTIRG(TIRG):
+
+    def __init__(self, head, image_model='RN50', text_model="default",
+                 prompt="", model_dim=512, load_image_transform=False,
+                 misalignment=None):
+        assert misalignment is None
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        clip_model, image_transform = clip.load('RN50', device, jit=False)
+        self.prompt = prompt
+
+        image_model = None if image_model is None else clip_model.visual
+        text_model = None if text_model is None else clip_model.transformer
+
+        super().__init__(head, image_model=image_model, text_model=text_model,
+                         embed_dim=model_dim)
+
+        self.clip = clip_model
+
+        if load_image_transform:
+            self.image_transform = image_transform
+
+        self.gated_feature_composer.to(dtype=image_model.conv1.weight.dtype)
+        self.res_info_composer.to(dtype=image_model.conv1.weight.dtype)
+
+    def extract_img_feature(self, images):
+        if self.image_model is None:
+            return None
+        if all([im is None for im in images]):
+            return None
+        return self.clip.encode_image(images)
+
+    def extract_text_feature(self, texts):
+        if self.text_model is None:
+            return None
+        if all([tt is None for tt in texts]):
+            return None
+        tokenized = [tokenize(f"{self.prompt}{tx}") for tx in texts]
+        text_inputs = torch.cat(tokenized).to(self.device)
+        return self.clip.encode_text(text_inputs)
+
+
 def get_clip_class(cfg):
-    kwargs = {"image_model": "RN50", "prompt": cfg.MODEL.CLIP.PROMPT,
-              "load_image_transform": cfg.MODEL.INCLUDES_IMAGE_TRANSFORM}
+    kwargs = {"image_model": cfg.MODEL.IMAGE_MODEL.ARCHITECTURE,
+              "text_model": cfg.MODEL.TEXT_MODEL.ARCHITECTURE,
+              "prompt": cfg.MODEL.CLIP.PROMPT,
+              "load_image_transform": cfg.MODEL.INCLUDES_IMAGE_TRANSFORM,
+              "misalignment": cfg.MODEL.CLIP.MISALIGNMENT}
 
     if cfg.MODEL.COMPOSITION == "clip":
-        if cfg.MODEL.CLIP.MISALIGNMENT == "scramble":
-            print("Using CLIP with text_projection scrambled")
-            ModelClass = ScrambledClip
-        elif cfg.MODEL.CLIP.MISALIGNMENT == "mismatch":
-            print("Using CLIP with a wrong text model")
-            ModelClass = MisalignedClip
-        else:
-            ModelClass = ClipModel
+        ModelClass = ClipModel
         kwargs["pretrain"] = cfg.MODEL.IMAGE_MODEL.PRETRAINED
     elif cfg.MODEL.COMPOSITION in ["clipmaaf", "clipresmaaf"]:
         kwargs.update({"img_out_features": cfg.MODEL.IMAGE_MODEL.OUTPUTS,
@@ -387,8 +459,7 @@ def get_clip_class(cfg):
                        "dropout": cfg.MODEL.DROPOUT_RATE,
                        "num_blocks": cfg.MODEL.MAAF.NUM_BLOCKS,
                        "position_encodings": cfg.MODEL.MAAF.POSITION_ENCODING,
-                       "output": cfg.MODEL.MAAF.OUTPUT,
-                       "misalignment": cfg.MODEL.CLIP.MISALIGNMENT})
+                       "output": cfg.MODEL.MAAF.OUTPUT})
         if cfg.MODEL.COMPOSITION == "clipresmaaf":
             kwargs["learn_weight"] = cfg.MODEL.MAAF.RESIDUAL.LEARN_WEIGHTS
             if cfg.MODEL.MAAF.RESIDUAL.INITIAL_MAAF_PRESIGMOID is not None:
@@ -401,6 +472,9 @@ def get_clip_class(cfg):
             ModelClass = ClipResMAAF
         else:
             ModelClass = ClipMAAF
+    elif cfg.MODEL.COMPOSITION == "cliptirg":
+        kwargs["model_dim"] = cfg.MODEL.EMBED_DIM
+        ModelClass = ClipTIRG
     else:
         raise ValueError(f"Invalid architecture {cfg.MODEL.COMPOSITION}")
 

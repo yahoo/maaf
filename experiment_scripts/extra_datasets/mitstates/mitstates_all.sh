@@ -1,0 +1,5 @@
+bash experiment_scripts/extra_datasets/mitstates/mitstates_baseline.sh
+bash experiment_scripts/extra_datasets/mitstates/mitstates_maaf.sh
+bash experiment_scripts/extra_datasets/mitstates/mitstates_raf.sh
+bash experiment_scripts/extra_datasets/mitstates/mitstates_tirg.sh
+bash experiment_scripts/extra_datasets/mitstates/mitstates.sh
