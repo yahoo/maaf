@@ -1,6 +1,6 @@
 # Modality-Agnostic Attention Fusion for visual search with text feedback
 
-The methods in this repository were used for the experiments described in two papers from Yahoo's Visual Intelligence Research team. The more recent paper's main results can be reproduced using the scripts in the `experiment_scripts` directory. If you find this code useful please cite
+The methods in this repository were used for the experiments described in two papers from Yahoo's Visual Intelligence Research team. The [more recent paper](https://arxiv.org/abs/2204.11004)'s main results can be reproduced using the scripts in the `experiment_scripts` directory. If you find this code useful please cite
 ```
 @article{dodds2022training,
   title = {Training and challenging models for text-guided fashion image retrieval},
