@@ -3,4 +3,4 @@
 
 from maaf import main
 
-main.main()
+main.main(old_args=True)

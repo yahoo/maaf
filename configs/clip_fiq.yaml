@@ -1,0 +1,36 @@
+# Copyright 2022 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
+# See LICENSE file in project root for terms.
+
+DATASET:
+  NAME: fashioniq
+  PATH: /home/default/ephemeral_drive/Data/FashionIQ/
+  REQUIRE_IMAGES: false
+  AUGMENTATION:
+    IMAGE_AUGMENTATION: true
+DATA_LOADER:
+  LOADER_NUM_WORKERS: 0
+OUTPUT_DIR: /home/default/ephemeral_drive/experiments/fashioniq/
+EXP_NAME: clip-fiq-lr_6-ds
+MODEL:
+  EMBED_DIM: 1024
+  COMPOSITION: clip
+  DEVICE: cuda
+  LOSS: double_softmax
+  TEXT_MODEL:
+    ARCHITECTURE: null
+    TOKENIZER: null
+  IMAGE_MODEL:
+    ARCHITECTURE: null  # because included in clip
+  INCLUDES_IMAGE_TRANSFORM: false
+  INITIAL_NORMALIZATION_FACTOR: 4.
+SOLVER:
+  BATCH_SIZE: 128
+  DROP_WORST_RATE: 0
+  EVAL_EVERY: 1
+  LEARNING_RATE: 0.00001
+  LEARNING_RATE_DECAY: 0.1
+  LEARNING_RATE_DECAY_FREQUENCY: 4000
+  NUM_ITERS: 6000
+  BATCH_NORM_MODE: freeze_bn
+  PRETRAINED_WEIGHT_LR_FACTOR_TEXT: 1.0
+  PRETRAINED_WEIGHT_LR_FACTOR_IMAGE: 1.0

@@ -1,0 +1,58 @@
+# Copyright 2022 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
+# See LICENSE file in project root for terms.
+
+DATASET:
+  NAME: fashiongen
+  PATH: /home/default/ephemeral_drive/Data/fashiongen/
+  CLASS_WEIGHTS: null
+  IMAGE_DIR: null
+  REQUIRE_IMAGES: false
+DATA_LOADER:
+  LOADER_NUM_WORKERS: 0
+EXP_NAME: clipresmaaf1-fg
+MODEL:
+  COMPOSITION: clipresmaaf
+  DEVICE: cuda
+  DROPOUT_RATE: 0.1
+  EMBED_DIM: 1024
+  IMAGE_MODEL:
+    ARCHITECTURE: null
+    OUTPUTS:
+    - 4
+    - attnpool
+  INCLUDES_IMAGE_TRANSFORM: false
+  LOSS: double_softmax
+  MAAF:
+    ATTENTION_HEADS: 8
+    ATTN_SOFTMAX_REPLACEMENT: null
+    BLOCK_WIDTH: 256
+    NUM_BLOCKS: 1
+    OUTPUT: rwpool
+    POSITION_ENCODING: null
+    RESIDUAL:
+      INITIAL_MAAF_WEIGHT: 0.01
+  TEXT_MODEL:
+    ARCHITECTURE: null
+    TOKENIZER: null
+  WEIGHTS: null
+  INITIAL_NORMALIZATION_FACTOR: 4.
+  CLIP:
+    MISALIGNMENT: null
+OUTPUT_DIR: /home/default/ephemeral_drive/experiments/
+SOLVER:
+  OPTIMIZER: sgd
+  BATCH_SIZE: 128
+  DROP_WORST_RATE: 0
+  EVAL_EVERY: 1
+  LEARNING_RATE: 0.0001
+  LEARNING_RATE_DECAY: 0.1
+  NUM_ITERS: 24420 # 12 epochs
+  LEARNING_RATE_DECAY_FREQUENCY: 20350  # 10 epochs
+  LR_DECAY_ONLY_ONCE: false
+  PRETRAINED_WEIGHT_LR_FACTOR_IMAGE: 0.1
+  PRETRAINED_WEIGHT_LR_FACTOR_TEXT: 0.1
+  SAVE_EVERY: 100
+  SOFTMAX_MARGIN: 0
+  WEIGHT_DECAY: 1.0e-06
+  PROJECTION_LR_TIED_TO_PRETRAINED: false
+  BATCH_NORM_MODE: freeze_bn

@@ -1,0 +1,52 @@
+# Copyright 2022 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
+# See LICENSE file in project root for terms.
+
+DATASET:
+  NAME: fashioniq
+  PATH: /home/default/ephemeral_drive/Data/FashionIQ/
+  REQUIRE_IMAGES: false
+DATA_LOADER:
+  LOADER_NUM_WORKERS: 0
+OUTPUT_DIR: /home/default/ephemeral_drive/experiments/fashioniq/clipmaaf/
+EXP_NAME: clipmaaf1-fiq
+MODEL:
+  COMPOSITION: clipmaaf
+  DEVICE: cuda
+  LOSS: double_softmax
+  EMBED_DIM: 1024
+  TEXT_MODEL:
+    ARCHITECTURE: null
+    TOKENIZER: null
+  IMAGE_MODEL:
+    ARCHITECTURE: null  # because included in clip
+    OUTPUTS:
+    - 4
+    - attnpool
+  INCLUDES_IMAGE_TRANSFORM: false
+  MAAF:
+    ATTENTION_HEADS: 8
+    ATTN_SOFTMAX_REPLACEMENT: null
+    BLOCK_WIDTH: 256
+    NUM_BLOCKS: 1
+    OUTPUT: rwpool
+    POSITION_ENCODING: null
+    RESIDUAL:
+      INITIAL_MAAF_WEIGHT: 0.1
+  WEIGHTS: null
+  INITIAL_NORMALIZATION_FACTOR: 4.
+SOLVER:
+  BATCH_SIZE: 128
+  DROP_WORST_RATE: 0
+  EVAL_EVERY: 1
+  LEARNING_RATE: 0.0001
+  LEARNING_RATE_DECAY: 0.1
+  LEARNING_RATE_DECAY_FREQUENCY: 4000
+  LR_DECAY_ONLY_ONCE: false
+  NUM_ITERS: 6000
+  PRETRAINED_WEIGHT_LR_FACTOR_IMAGE: 0.1
+  PRETRAINED_WEIGHT_LR_FACTOR_TEXT: 0.1
+  SAVE_EVERY: 100
+  SOFTMAX_MARGIN: 0
+  WEIGHT_DECAY: 1.0e-06
+  PROJECTION_LR_TIED_TO_PRETRAINED: false
+  BATCH_NORM_MODE: freeze_bn

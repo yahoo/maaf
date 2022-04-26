@@ -1,0 +1,51 @@
+DATASET:
+  NAME: mitstates
+  PATH: /home/default/ephemeral_drive/Data/mitstates/
+  REQUIRE_IMAGES: false
+  AUGMENTATION:
+    IMAGE_AUGMENTATION: null
+DATA_LOADER:
+  LOADER_NUM_WORKERS: 0
+OUTPUT_DIR: /home/default/ephemeral_drive/experiments/fashioniq/
+EXP_NAME: clip-mitstates-raf
+MODEL:
+  EMBED_DIM: 1024
+  COMPOSITION: clipresmaaf
+  DEVICE: cuda
+  LOSS: batch_based_classification  # consider
+  TEXT_MODEL:
+    ARCHITECTURE: default  # use the model paired with IMAGE_MODEL.ARCHITECTURE
+    TOKENIZER: null
+  IMAGE_MODEL:
+    ARCHITECTURE: RN50
+    OUTPUTS:
+    - 4
+    - attnpool
+  INCLUDES_IMAGE_TRANSFORM: false
+  MAAF:
+    ATTENTION_HEADS: 8
+    ATTN_SOFTMAX_REPLACEMENT: null
+    BLOCK_WIDTH: 256
+    NUM_BLOCKS: 2
+    OUTPUT: rwpool
+    POSITION_ENCODING: null
+    RESIDUAL:
+      INITIAL_MAAF_PRESIGMOID: null
+      INITIAL_MAAF_WEIGHT: 0.0067
+      LEARN_WEIGHTS: false
+SOLVER:
+  BATCH_SIZE: 128
+  OPTIMIZER: adam
+  BATCH_NORM_MODE: freeze_bn
+  DROP_WORST_RATE: 0
+  EVAL_EVERY: 1
+  LEARNING_RATE: 1.0e-05
+  LEARNING_RATE_DECAY: 0.1
+  LEARNING_RATE_DECAY_FREQUENCY: 2696
+  NUM_ITERS: 3370
+  BATCH_NORM_MODE: freeze_bn
+  PRETRAINED_WEIGHT_LR_FACTOR_TEXT: 0.1
+  PRETRAINED_WEIGHT_LR_FACTOR_IMAGE: 0.1
+  ALWAYS_EVAL_TEST: true
+  FINAL_EVAL_ON_TEST: true
+  PROJECTION_LR_TIED_TO_PRETRAINED: false

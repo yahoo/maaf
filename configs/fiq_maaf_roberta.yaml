@@ -1,0 +1,65 @@
+# Copyright 2022 Yahoo, Licensed under the terms of the Apache License, Version 2.0.
+# See LICENSE file in project root for terms.
+
+
+# adapted from old script compatibility logic output
+
+DATASET:
+  CLASS_WEIGHTS: null
+  IMAGE_DIR: null
+  NAME: fashioniq
+  NUM_CLASSES: null
+  PATH: /home/default/Data/FashionIQ/
+  REQUIRE_IMAGES: false
+DATA_LOADER:
+  LOADER_NUM_WORKERS: 0
+EXP_NAME: sequence_concat_attention_34_2_128_1_1_1_0
+MODEL:
+  COMPOSITION: sequence_concat_attention
+  DEVICE: cuda
+  DROPOUT_RATE: 0.1
+  EMBED_DIM: 512
+  IMAGE_MODEL:
+    ARCHITECTURE: resnet50
+    FREEZE_WEIGHTS: false
+    OUTPUTS:
+    - 3
+    - 4
+    PRETRAINED: true
+    WEIGHTS: null
+  LOSS: batch_based_classification
+  MAAF:
+    ATTENTION_HEADS: 8
+    ATTN_SOFTMAX_REPLACEMENT: null
+    BLOCK_WIDTH: 128
+    NUM_BLOCKS: 2
+    OUTPUT: rwpool
+    POSITION_ENCODING: null
+  TEXT_MODEL:
+    ARCHITECTURE: roberta
+    EMBED_DIM: 512
+    FREEZE_WEIGHTS: false
+    MAX_VOCAB: 52000
+    NUM_LAYERS: 1
+    TOKENIZER: bpe
+    TOKENIZER_PATH: roberta-base
+    VOCAB_DATA: null
+    VOCAB_MIN_FREQ: 0
+  WEIGHTS: null
+OUTPUT_DIR: /home/default/ephemeral_drive/experiments/fashioniq/
+SOLVER:
+  BATCH_SIZE: 32
+  DROP_WORST_RATE: 0
+  EVAL_EVERY: 3
+  LEARNING_RATE: 0.01
+  LEARNING_RATE_DECAY: 0.1
+  LEARNING_RATE_DECAY_FREQUENCY: 50000
+  LR_DECAY_ONLY_ONCE: false
+  NUM_ITERS: 150000
+  PRETRAINED_WEIGHT_LR_FACTOR_IMAGE: 0.1
+  PRETRAINED_WEIGHT_LR_FACTOR_TEXT: 1.0
+  SAVE_EVERY: 100
+  SCHEDULE_ITERS: ''
+  SCHEDULE_RATES: ''
+  SOFTMAX_MARGIN: 0
+  WEIGHT_DECAY: 1.0e-06
